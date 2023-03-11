@@ -28,8 +28,11 @@ MSG=$(echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check)
 if [ "$MSG" == "kubectl: OK" ]; then
     sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
     kubectl version --client
+    echo 'source <(kubectl completion bash)' >>~/.bashrc
+    source ~/.bashrc
 else
     echo "WARNING: 1 computed checksum did NOT match."
+    exit
 fi
 
 echo "Installing minikube ..."
