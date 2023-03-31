@@ -25,7 +25,21 @@ resource "aws_subnet" "my_test_subnet" {
 
 # Creates a route to the internet
 resource "aws_internet_gateway" "my_igw" {
-  vpic_id = aws_vpc.my_test_vpc.id
+  vpc_id = aws_vpc.my_test_vpc.id
+
+  tags = {
+    Name = var.igw_name
+  }
+}
+
+# Creates new route table with IGW
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.my_test_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.my_igw.id
+  }
 
   tags = {
     Name = var.igw_name
@@ -65,7 +79,7 @@ resource "aws_instance" "app_instance" {
 
   subnet_id = aws_subnet.my_test_subnet.id
   vpc_security_group_ids = [aws_security_group.app_sg.id]
-  associate_public_id_address = true
+  associate_public_ip_address = true
 
   user_data = <<-EOF
   #!/bin/bash -ex
