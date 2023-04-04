@@ -2,6 +2,11 @@ provider "aws" {
     region = var.aws_region
 }
 
+resource "aws_key_pair" "my_key_pair" {
+  key_name   = "my-key-pair"
+  public_key = file("key.pub")
+}
+
 resource "aws_vpc" "example" {
     cidr_block = "10.0.0.0/16"
 
@@ -72,6 +77,13 @@ resource "aws_security_group" "backend" {
         cidr_blocks = ["0.0.0.0/0"]
     }
 
+    ingress {
+        from_port       = 22
+        to_port         = 22
+        protocol        = "tcp"
+        security_groups = [aws_security_group.frontend.id] # add the frontend security group
+    }
+
     egress {
         from_port = 0
         to_port = 0
@@ -84,6 +96,8 @@ resource "aws_launch_configuration" "backend" {
     image_id    = var.ec2_ami
     instance_type = "t3.micro"
     security_groups = [aws_security_group.backend.id]
+    associate_public_ip_address = true
+    key_name      = aws_key_pair.my_key_pair.key_name
     user_data = <<-EOF
                 #!/bin/bash
                 sudo yum update -y
@@ -116,7 +130,7 @@ resource "aws_autoscaling_group" "backend" {
 resource "aws_instance" "frontend" {
     ami           = var.ec2_ami
     instance_type = "t3.micro"
-    #key_name = "example-keypair"
+    key_name      = aws_key_pair.my_key_pair.key_name
     subnet_id = aws_subnet.frontend.id
     vpc_security_group_ids = [aws_security_group.frontend.id]
     associate_public_ip_address = true
@@ -129,6 +143,7 @@ resource "aws_instance" "frontend" {
     #!/bin/bash -ex
     sudo apt-get update
     sudo apt-get install nginx -y
+    sudo apt-get install net-tools -y
     sudo systemctl enable nginx
     sudo systemctl start nginx
     sudo service nginx stop
@@ -157,9 +172,28 @@ resource "aws_route_table" "frontend" {
     }
 }
 
+resource "aws_route_table" "backend" {
+    vpc_id = aws_vpc.example.id
+
+    route {
+        cidr_block = "0.0.0.0/0"
+        gateway_id = aws_internet_gateway.example.id
+    }
+
+    tags = {
+        Name = "backend-rt"
+    }
+}
+
 resource "aws_route_table_association" "frontend" {
     subnet_id = aws_subnet.frontend.id
     route_table_id = aws_route_table.frontend.id
+}
+
+# Associates route table with subnet
+resource "aws_route_table_association" "backend" {
+    subnet_id = aws_subnet.backend.id
+    route_table_id = aws_route_table.backend.id
 }
 
 resource "aws_lb" "example" {
