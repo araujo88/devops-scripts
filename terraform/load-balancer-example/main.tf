@@ -99,11 +99,14 @@ resource "aws_launch_configuration" "backend" {
     associate_public_ip_address = true
     key_name      = aws_key_pair.my_key_pair.key_name
     user_data = <<-EOF
-                #!/bin/bash
-                sudo yum update -y
-                sudo yum install -y httpd
-                sudo systemctl start httpd
-                sudo systemctl enable httpd
+                #!/bin/bash -ex
+                sudo apt-get update
+                sudo apt-get install nginx -y
+                sudo apt-get install net-tools -y
+                sudo systemctl enable nginx
+                sudo systemctl start nginx
+                sudo service nginx stop
+                sudo service nginx restart
                 EOF
 }
 
